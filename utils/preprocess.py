@@ -10,7 +10,7 @@ import torch
 @click.option(
     "--file",
     type=str,
-    default="../dlrm_datasets/embedding_bag/2021/fbgemm_t856_bs65536.pt.gz",
+    default="/home/hli31/S2024_MLSYS/dlrm_datasets/fbgemm_t856_bs65536_0.pt",
     help="Embedding bag data file",
 )
 @click.option(
@@ -20,8 +20,11 @@ import torch
     help="Random sampling the indices",
 )
 def preprocess(file, factor):
-    with gzip.open(file) as f:
-        indices, offsets, lengths = torch.load(f)
+    if file.endswith(".gz"):
+        with gzip.open(file) as _:
+            indices, offsets, lengths = torch.load(_)
+    else:
+        indices, offsets, lengths = torch.load(file)
 
     print(f"indices shape: {indices.shape}")
     print(f"Offsets shape:, {offsets.shape}")
@@ -35,11 +38,11 @@ def preprocess(file, factor):
     if factor < 1:
         items = np.random.choice(indices, int(len(items) * factor), replace=False)
 
-    print(f"Number of unique indices after random sampling: {len(items)}")
+        print(f"Number of unique indices after random sampling: {len(items)}")
 
-    indices = file[0:file.rfind(".pt")] + "_cached.csv"
+        indices = file[0:file.rfind(".pt")] + "_cached.csv"
 
-    np.savetxt(indices, items.reshape(1, -1), delimiter=",", fmt="%d")
+        np.savetxt(indices, items.reshape(1, -1), delimiter=",", fmt="%d")
 
 if __name__ == "__main__":
     preprocess()
