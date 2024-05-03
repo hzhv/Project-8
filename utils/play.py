@@ -11,28 +11,14 @@ try:
         indices, offsets, lengths = torch.load(f)
 except:
     indices, offsets, lengths = torch.load(file)
+    print(lengths[1, :])
+    print(type(indices[1]))
     print("yeah!!!")
 
-def getQueryID(file, bs) -> typing.List:
-    '''
-    Args:
-    file (str): Path to the dataset file. e.g. embedding bag
-    bs (tuple): 
-    
-    Return:
-    queryList (list): the batch sizes in the given range
-    '''
-    indices, offsets, lengths = torch.load(file)
+t = torch.load("demo_traces.pt")
 
-    if bs == (0, 0):
-        return list(range(len(lengths[0])))
-    
-    start, end = bs
-    if start < 1 or end > len(lengths[0]):
-        raise ValueError("The range is out of the query size!")
-    queryList = list(range(start - 1, end))
-    print(f"Query ID scope: ({start}, {end}): {queryList}")
-    return queryList
+print(t[0])
 
 if __name__ == "__main__":
-    getQueryID(file, (1, 999))
+    # getQueryID(file, (1, 999))
+    print("Hello, world!")

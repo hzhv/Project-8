@@ -18,7 +18,7 @@ import torch
     "--scope",
     nargs=2,
     type=int,
-    default=(0, 0),
+    default=[66, 69],
     help="the Trace range, e.g. (1, 856)",
 )
 @click.option(
@@ -29,15 +29,15 @@ import torch
     help="the query range, e.g. (1, 65536)",
 )
 def main(file, scope, bs):
-    if scope and bs:
-        print("No valid range is given, cannot get traces,")
-        print("Please provide a valid range for table ID or batch size.")
-    elif scope:
+    if scope:
         getTraces_tableID(file, scope)
     elif bs:
         getTraces_queryID(file, bs)
+    else:
+        print("No valid range is given, cannot get traces,")
+        print("Please provide a valid range for table ID or batch size.")
     
-    
+
 def getDataset(file, factor=1):
     try:
         with gzip.open(file) as f:
@@ -77,8 +77,9 @@ def getTableID(file, scope) -> typing.List:
     start, end = scope
     if start < 1 or end > len(lengths):
         raise ValueError("The range is out of the embedding table size!")
-    tableIDList = list(range(start - 1, end))
-    print(f"Table ID scope: ({start}, {end}): {tableIDList}")
+    tableIDScope = list(range(start - 1, end))
+    tableIDList = list(range(0, end))
+    print(f"Table ID scope: ({start}, {end}): {tableIDScope}")
     return tableIDList
 
 def getQueryID(file, bs) -> typing.List:
@@ -112,29 +113,42 @@ def getTraces_tableID(file, scope):
     - traces (torch.Tensor): shape [N, 2], where N is the number of samples
     Each row in the tensor represents a sample as [table_id, idx_id]
     '''
+    start_table_id = scope[0]
+    samples = [] # (table_id, idx_id)
+    start_idx = 0
+    exe_flag = False
+
     indices, _, lengths = getDataset(file)
     tableIDList = getTableID(file, scope)
 
-    samples = [] # (table_id, idx_id)
-    start_idx = 0
-   
     for table_id in tableIDList:
         pf_sum = lengths[table_id].sum().item()
-        if pf_sum == 0:
-            end_idx = start_idx # will save a [] in idxIDs
-        else:
-            end_idx = start_idx + pf_sum
-
+        end_idx = start_idx + pf_sum
+        # if pf_sum == 0:
+        #     end_idx = start_idx # will save a [] in idxIDs
+        # else:
+        #     end_idx = start_idx + end_idx
+        if not exe_flag and table_id != start_table_id - 1:
+            start_idx = end_idx
+            continue
+        elif table_id == start_table_id - 1:
+            exe_flag = True
+        # BUG, add 0 to idxIDS
         idxIDs = indices[start_idx:end_idx].tolist()
         for idx_ID in idxIDs:
-            sample_tensor = torch.tensor([table_id, idx_ID], dtype=torch.float)
+            sample_tensor = torch.tensor([table_id, idx_ID], dtype=torch.int32)
             samples.append(sample_tensor)
-
-        print(f"table ID: {table_id}, sum pf: {pf_sum}, start_idx: {start_idx}, end_idx: {end_idx}\n")
+        print(f"table ID: {table_id}, start_idx: {start_idx}, end_idx: {end_idx}, sum pf: {pf_sum}\n")
         start_idx = end_idx
     
     traces = torch.stack(samples)
     print(f"traces shape: {traces.shape}")
+    
+    traces_pt = torch.save(traces, "demo_traces.pt")
+
+    ## following are test codes:
+    t = torch.load("demo_traces.pt")
+    print(t[0])
     return traces
 
 def getTraces_queryID(file, bs):
@@ -153,13 +167,14 @@ def getTraces_queryID(file, bs):
     samples = [] # (table_id, idx_id)
     start_idx = 0
     for query_id in queryIDList:
+        lengths[table_id].sum().item()
         pf_sum = lengths[:, query_id].sum().item()
         end_idx = start_idx + pf_sum
 
         idxIDs = indices[start_idx:end_idx].tolist()
-    
-    # TODO: Hanzhao WIP
 
+    # TODO: Hanzhao WIP
+    # np.sum(lengths[:row, :]) + np.sum(lengths[row, :col])
     return 0
 
 if __name__ == "__main__":
@@ -168,3 +183,4 @@ if __name__ == "__main__":
     main()
     end = time.time()
     print(f"Time: {(end - start)/60:.2f} min")
+
