@@ -1,5 +1,8 @@
-import gzip
+import os
+import time
+import logging
 import typing
+import gzip
 
 import numpy as np
 import click
@@ -11,43 +14,55 @@ import torch
 @click.option(
     "--file",
     type=str,
-    default="/home/hli31/S2024_MLSYS/dlrm_datasets/fbgemm_t856_bs65536_0.pt",
+    default="/home/hli31/S2024_MLSYS/dlrm_datasets/2021/fbgemm_t856_bs65536_0.pt",
     help="Embedding bag data file",
 )
 @click.option(
     "--scope",
     nargs=2,
     type=int,
-    default=[66, 69],
+    default=(0,0),
     help="the Trace range, e.g. (1, 856)",
 )
 @click.option(
     "--bs",
     nargs=2,
     type=int,
-    default=(0, 0),
+    default=(0,0),
     help="the query range, e.g. (1, 65536)",
 )
 def main(file, scope, bs):
+    start = time.time()
+    log_directory = "/home/hli31/S2024_MLSYS/Project-8/trace_logs/"
+    if not os.path.exists(log_directory):
+        os.makedirs(log_directory)
+    log_file = os.path.join(log_directory, file[file.rfind("fbgemm"):file.rfind(".pt")] + "_traces.log")
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler(log_file),
+                        logging.StreamHandler()
+                    ])
+    logging.info("Start to get traces...")
+    
     if scope:
         getTraces_tableID(file, scope)
     elif bs:
         getTraces_queryID(file, bs)
     else:
-        print("No valid range is given, cannot get traces,")
-        print("Please provide a valid range for table ID or batch size.")
+        raise AttributeError("No valid range is given, cannot get traces,\
+                            Please provide a valid range for table ID or batch size.")
+    end = time.time()
+    logging.info(f"Finished! Time cost: {(end - start)/60:.2f} min\n")
     
-
 def getDataset(file, factor=1):
     try:
         with gzip.open(file) as f:
             indices, offsets, lengths = torch.load(f)
     except:
         indices, offsets, lengths = torch.load(file)
-    print(f"indices shape: {indices.shape}")
-    print(f"Offsets shape:, {offsets.shape}")
-    print(f"Lengths shape:, {lengths.shape}")
-    print()
+    logging.info(f"indices shape: {indices.shape}")
+    logging.info(f"Offsets shape:, {offsets.shape}")
+    logging.info(f"Lengths shape:, {lengths.shape}\n")
 
     if factor < 1:
         items = np.random.choice(indices, int(len(items) * factor), replace=False)
@@ -59,28 +74,30 @@ def getDataset(file, factor=1):
         np.savetxt(indices, items.reshape(1, -1), delimiter=",", fmt="%d")
     return indices, offsets, lengths
 
-def getTableID(file, scope) -> typing.List: 
+def getTableInfo(file, scope): 
     '''
     Args:
     file (str): Path to the dataset file. e.g. embedding bag
     scope (tuple): start from 1 e.g. [1, 100]->[0, 99]
     
     Return: 
-    tableIDList (list): the table id indices of given range
+    embag_indices (torch.Tensor): shape [1,], the indices of the embedding bag
+    embag_lengths (torch.Tensor): shape [1,], the lengths of the embedding bag
+    tableIDList (list): the table id indices of given scope
     '''
-    _, _, lengths = getDataset(file)
+    embag_indices, _, embag_lengths = getDataset(file)
 
     if scope == (0, 0):
-        print(f"Table ID indices: {0, len(lengths)}")
-        return list(range(len(lengths)))
+        logging.info(f"Table ID scope: {1, len(embag_lengths)}")
+        return embag_indices, embag_lengths, list(range(len(embag_lengths)))
 
     start, end = scope
-    if start < 1 or end > len(lengths):
+    if start < 1 or end > len(embag_lengths):
         raise ValueError("The range is out of the embedding table size!")
     tableIDScope = list(range(start - 1, end))
     tableIDList = list(range(0, end))
-    print(f"Table ID scope: ({start}, {end}): {tableIDScope}")
-    return tableIDList
+    logging.info(f"Table ID scope ({start}, {end}): {tableIDScope}\n")
+    return embag_indices, embag_lengths, tableIDList
 
 def getQueryID(file, bs) -> typing.List:
     '''
@@ -100,7 +117,7 @@ def getQueryID(file, bs) -> typing.List:
     if start < 1 or end > len(lengths[0]):
         raise ValueError("The range is out of the query size!")
     queryList = list(range(start - 1, end))
-    print(f"Query ID scope: ({start}, {end}): {queryList}")
+    logging.info(f"Query ID scope: ({start}, {end}): {queryList}")
     return queryList
 
 def getTraces_tableID(file, scope):
@@ -113,42 +130,54 @@ def getTraces_tableID(file, scope):
     - traces (torch.Tensor): shape [N, 2], where N is the number of samples
     Each row in the tensor represents a sample as [table_id, idx_id]
     '''
-    start_table_id = scope[0]
     samples = [] # (table_id, idx_id)
+    start_table_id = scope[0]
     start_idx = 0
+    skiped_tables = []
     exe_flag = False
 
-    indices, _, lengths = getDataset(file)
-    tableIDList = getTableID(file, scope)
+    indices, lengths, tableIDList = getTableInfo(file, scope)
 
     for table_id in tableIDList:
         pf_sum = lengths[table_id].sum().item()
-        end_idx = start_idx + pf_sum
-        # if pf_sum == 0:
-        #     end_idx = start_idx # will save a [] in idxIDs
-        # else:
-        #     end_idx = start_idx + end_idx
-        if not exe_flag and table_id != start_table_id - 1:
+        end_idx = start_idx + pf_sum  # Two Pointers
+
+        if scope == (0, 0):
+            pass
+        elif not exe_flag and table_id != start_table_id - 1:
             start_idx = end_idx
             continue
         elif table_id == start_table_id - 1:
             exe_flag = True
-        # BUG, add 0 to idxIDS
+        
+        if pf_sum == 0:
+            skiped_tables.append(table_id)
+            print(f"Notice: table {table_id} has 0 indices, skip to the next table, sum pf: {pf_sum}")
+            continue
         idxIDs = indices[start_idx:end_idx].tolist()
         for idx_ID in idxIDs:
-            sample_tensor = torch.tensor([table_id, idx_ID], dtype=torch.int32)
+            sample_tensor = torch.tensor([int(table_id), int(idx_ID)], dtype=torch.int64)
+            ## following are test codes:
+            if torch.isinf(sample_tensor).any():
+                print(f"Created inf in tensor for table_id = {table_id}, idx_ID = {idx_ID}")
             samples.append(sample_tensor)
-        print(f"table ID: {table_id}, start_idx: {start_idx}, end_idx: {end_idx}, sum pf: {pf_sum}\n")
+   
+        print(f"Table ID: {table_id}, Start Index: {start_idx}, End Index: {end_idx}, sum pf: {pf_sum}\n")
         start_idx = end_idx
     
     traces = torch.stack(samples)
-    print(f"traces shape: {traces.shape}")
+    logging.info(f"Skiped Table ID in the given scope {scope}: {skiped_tables}")
+    logging.info(f"Trace shape: {traces.shape}")
+    ptName = "/home/hli31/S2024_MLSYS/Trace/" + file[file.rfind("fbgemm"):file.rfind(".pt")] + f"_trace_{start_table_id}_{tableIDList[-1]}.pt"
     
-    traces_pt = torch.save(traces, "demo_traces.pt")
-
     ## following are test codes:
-    t = torch.load("demo_traces.pt")
-    print(t[0])
+    inf_mask = torch.isinf(traces)
+    if inf_mask.any():
+        logging.warning(f"HUH? Detected inf {traces}")
+    ## end of test codes
+
+    torch.save(traces, ptName)
+    
     return traces
 
 def getTraces_queryID(file, bs):
@@ -178,9 +207,5 @@ def getTraces_queryID(file, bs):
     return 0
 
 if __name__ == "__main__":
-    import time
-    start = time.time()
     main()
-    end = time.time()
-    print(f"Time: {(end - start)/60:.2f} min")
 
