@@ -1,21 +1,16 @@
-training_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_101_200.pt"
-testing_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_351_400.pt"
+training_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_90_99.pt"
+testing_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_90_99.pt"
 
 model_configs:
-  d_model: 512
-  nhead: 8
-  num_encoder_layers: 6
-  num_decoder_layers: 6
-  dim_feedforward: 2048
-  max_seq_length: 200
+  hidden_dim: 512
+  n_heads: 8
+  n_layers: 2
+  embed_dim: 256
 
 training_configs:
-  learning_rate: 0.0005
-  batch_size: 256
-  epochs: 5
-  sequence_length: 200
-  prediction_steps: 10
-  loss_weights:
-    alpha: 0.3 # table_id
-    beta: 0.7  # idx_id
+  learning_rate: 0.001
+  batch_size: 16
+  epochs: 1
+  sequence_step: 20000
+  prediction_steps: 1
   accuracy_type: "strict" # or "partial", "average"

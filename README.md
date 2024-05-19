@@ -22,3 +22,12 @@ TODO: develop the preprocessing python script with following new feature:
 	e.g. Input a list (2 , 3, 4, 5), return list corresponding pair
 - Specify embedding table, range = [0, 855]
        e.g. Input a list (2 , 3, 4) return list corresponding pair
+
+
+
+假设输入序列为 [(table_id 1, idx_id 2), (table_id 3, idx_id 2), (table_id 5, idx_id 6)]，
+下一个序列为   [(table_id 3, idx_id 2), (table_id 5, idx_id 6), (table_id 7, idx_id 8)]，
+那么 
+             (table_id 1, idx_id 2) 的 GT 为 0， (table_id 7, idx_id 8) 的 GT 为 0
+             (table_id 3, idx_id 2) 和 (table_id 5, idx_id 6) 的 GT 为 1
+

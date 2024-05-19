@@ -50,6 +50,8 @@ import torch
 #     assert not torch.isinf(lengths).any(), "Infinity found in lengths"
 
 if __name__ == "__main__":
-    lengths = torch.tensor([1, 2, 3, 4, 5])
-    print(lengths[:3])
+    idx = 0
+    step = 1
+    lengths = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    print(lengths[idx + step:5])
 

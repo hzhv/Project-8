@@ -20,3 +20,14 @@
 2024-05-07 16:19:12,050 - INFO - Trace shape: torch.Size([14487630, 2])
 2024-05-07 16:20:36,785 - INFO - Finished! Time cost: 3.52 min
 
+2024-05-18 21:46:59,702 - INFO - Start to get traces...
+2024-05-18 21:47:27,672 - INFO - indices shape: torch.Size([468084223])
+2024-05-18 21:47:27,673 - INFO - Offsets shape:, torch.Size([56098817])
+2024-05-18 21:47:27,673 - INFO - Lengths shape:, torch.Size([856, 65536])
+
+2024-05-18 21:47:27,692 - INFO - Table ID scope (90, 100): [89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+
+2024-05-18 21:49:35,149 - INFO - Skiped Table ID in the given scope (90, 100): [90, 93, 94, 98, 99]
+2024-05-18 21:49:35,150 - INFO - Trace shape: torch.Size([10242197, 2])
+2024-05-18 21:49:43,759 - INFO - Finished! Time cost: 2.73 min
+
