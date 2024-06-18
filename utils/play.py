@@ -1,5 +1,7 @@
+import os
 import gzip
 import typing
+
 
 import numpy as np
 import click
@@ -50,8 +52,10 @@ import torch
 #     assert not torch.isinf(lengths).any(), "Infinity found in lengths"
 
 if __name__ == "__main__":
-    idx = 0
-    step = 1
-    lengths = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9])
-    print(lengths[idx + step:5])
-
+    config = "/home/hli31/S2024_MLSYS/Project-8/configs/prefetcher_transformer.yaml"
+    d = torch.load("/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt")
+    a = torch.load("/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_600_602.pt")
+    print(d.shape)
+    print(a.shape)
+    print(len(torch.unique(d[:, 1])))
+    print(len(torch.unique(a[:, 1])))

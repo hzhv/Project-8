@@ -27,9 +27,7 @@ class TraceDataset(Dataset): # load transformed data
         idx_id_seq = x[:, 1]
         gt_table = self.data[tgt_start : tgt_end, 0]
         gt_idx = self.data[tgt_start : tgt_end, 1]
-        print(index)
-        print(gt_table, gt_idx)
-        print(gt_table.shape, gt_idx.shape)
+
         return table_id_seq, idx_id_seq, gt_table, gt_idx
 
 def get_num_classes(data, index):

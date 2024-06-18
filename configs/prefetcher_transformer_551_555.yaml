@@ -1,0 +1,15 @@
+training_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt"
+testing_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_600_602.pt"
+
+model_configs:
+  hidden_dim: 512
+  n_heads: 8
+  n_layers: 2
+  embed_dim: 256
+
+training_configs:
+  learning_rate: 0.001
+  batch_size: 64
+  epochs: 5
+  sequence_step: 1000
+  prediction_steps: 1
