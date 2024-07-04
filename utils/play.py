@@ -50,12 +50,50 @@ import torch
 
 #     assert not torch.isinf(indices).any(), "Infinity found in indices"
 #     assert not torch.isinf(lengths).any(), "Infinity found in lengths"
+def calculate_pair_match(predicted, ground_truth):
+    """
+    Calculate the number of pairs in the predicted sequence 
+    that appear in the ground truth sequence.
+    """
+    print("\nPAIR MATCH CALCULATION")
+    print("predicted shape:", predicted.shape)
+    print("ground_truth shape:", ground_truth.shape)
+
+    match_count = 0
+    total_count = len(predicted)
+
+    
+    for pair in predicted:
+        print(pair, pair.shape)
+        # if tuple(pair.tolist()) in [tuple(gt_pair.tolist()) for gt_pair in ground_truth]:
+        #     match_count += 1
+
+    print("Match count:", match_count)
+    print("Total count:", total_count, "\n")
+
+    accuracy = match_count / total_count if total_count > 0 else 0.0
+    return accuracy
+
+# 测试用例
+def test_calculate_pair_match():
+    predicted = torch.tensor([
+        [100, 200],
+        [300, 400],
+        [500, 600],
+        [700, 800]
+    ])
+    ground_truth = torch.tensor([
+        [100, 200],
+        [300, 400],
+        [900, 1000],
+        [500, 600],
+        [700, 800],
+        [1100, 1200]
+    ])
+    expected_accuracy = 1.0  # 因为所有的预测对都在 ground truth 中出现过
+    accuracy = calculate_pair_match(predicted, ground_truth)
+    assert accuracy == expected_accuracy, f"Expected {expected_accuracy}, but got {accuracy}"
+    print(f"Test passed. Accuracy: {accuracy}")
 
 if __name__ == "__main__":
-    config = "/home/hli31/S2024_MLSYS/Project-8/configs/prefetcher_transformer.yaml"
-    d = torch.load("/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt")
-    a = torch.load("/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_600_602.pt")
-    print(d.shape)
-    print(a.shape)
-    print(len(torch.unique(d[:, 1])))
-    print(len(torch.unique(a[:, 1])))
+    test_calculate_pair_match()

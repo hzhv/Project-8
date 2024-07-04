@@ -6,9 +6,9 @@ import gzip
 
 import numpy as np
 import click
-
 import torch
 
+from dataset_load import get_unqs
 
 @click.command()
 @click.option(
