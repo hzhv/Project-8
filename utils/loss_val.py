@@ -10,7 +10,8 @@ def calculate_pair_match(predicted, ground_truth):
     print("\nPAIR MATCH CALCULATION")
     # print("predicted shape:", predicted.shape)
     # print("ground_truth shape:", ground_truth.shape)
-
+    print(predicted)
+    print("\n######################################################################################################################\n")
     gt_set = {tuple(gt_pair.tolist()) for gt_pair in ground_truth}
     total_count = len(predicted)
     match_count = 0

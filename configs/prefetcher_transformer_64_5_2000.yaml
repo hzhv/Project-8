@@ -14,4 +14,4 @@ training_configs:
   batch_size: 64
   epochs: 5
   input_window_size: 2000
-  prediction_ratio: 0.2
+  prediction_ratio: 0.005

@@ -60,7 +60,7 @@ def load_dataset(file_path, sequence_length, prediction_ratio, batch_size, shuff
     Return:
     Torch DataLoader for the TraceDataset
     """
-    log_dir = "/home/hli31/S2024_MLSYS/Project-8-exp/exp_logs/"
+    log_dir = "../Project-8-exp/exp_logs/"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log_file = os.path.join(log_dir, file_path[file_path.rfind("fbgemm"):file_path.rfind(".pt")] + ".log")

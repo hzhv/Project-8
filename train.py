@@ -115,7 +115,7 @@ def validate_model(model, data_loader, criterion, device, fileName, reverse_tabl
 
     print(f'Validation Loss: {avg_val_loss:.4f}, Pair Match Accuracy: {average_accuracy:.4f}')
 
-    results_path = "/home/hli31/S2024_MLSYS/Project-8/tmp/"
+    results_path = "./Project-8/tmp/"
     val_results_file = os.path.join(results_path, f"{fileName}_val.txt")
     with open(val_results_file, 'w') as f:
         for result in all_results:
@@ -130,7 +130,7 @@ def validate_model(model, data_loader, criterion, device, fileName, reverse_tabl
 @click.option(
     "--config",
     type=str,
-    default="/home/hli31/S2024_MLSYS/Project-8/configs/prefetcher_transformer_64_5_2000.yaml",
+    default="./configs/prefetcher_transformer_64_5_2000.yaml",
     help="Path to the configuration file",
 )
 def main(config):
