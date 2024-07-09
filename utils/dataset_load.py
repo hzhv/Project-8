@@ -4,30 +4,40 @@ import logging
 import torch
 from torch.utils.data import Dataset, DataLoader
 import yaml
+from tokenizers import Tokenizer, normalizers
+from tokenizers.models import WordPiece
+from tokenizers.trainers import WordPieceTrainer
+from tokenizers.pre_tokenizers import Whitespace
 
 
 class TraceDataset(Dataset):
-    def __init__(self, file_path, sequence_length, prediction_ratio):
+    def __init__(self, file_path, sequence_length, prediction_ratio, idx_tokenizer_path=""):
         self.file_path = file_path
         self.data = torch.load(self.file_path)
         self.data_length = len(self.data)
         self.sequence_length = sequence_length
         self.prediction_steps = int(sequence_length * prediction_ratio)
         
-        unique_table_ids = torch.unique(self.data[:, 0])
-        unique_idx_ids = torch.unique(self.data[:, 1])
-        self.table_id_map = {v.item(): i for i, v in enumerate(unique_table_ids)}
-        self.idx_id_map = {v.item(): i for i, v in enumerate(unique_idx_ids)}
+        if os.path.exists(idx_tokenizer_path):
+            self.idx_tokenizer = Tokenizer.from_file(idx_tokenizer_path)
+        else:
+            self.idx_tokenizer = self.train_tokenizer(self.data[:, 1])
+            token_dir = "../Project-8-exp/exp_tokens/"
+            token_path = os.path.join( \
+                    token_dir, file_path[file_path.rfind("fbgemm"):file_path.rfind(".pt")] + "_tokenizer.json")
+            self.idx_tokenizer.save(token_path)
 
-        # logging.info(f"Unique table ids: {unique_table_ids}")
-        # logging.info(f"Unique idx ids: {unique_idx_ids}")
-        logging.info(f"Number of unique table ids: {len(unique_table_ids)}")
-        logging.info(f"Number of unique idx ids: {len(unique_idx_ids)}")
-        # logging.info(f"Table ID map: {self.table_id_map}")
-        # logging.info(f"Idx ID map: {self.idx_id_map}")
+        unique_table_ids = torch.unique(self.data[:, 0])
+        # unique_idx_ids = torch.unique(self.data[:, 1])
+        self.table_id_map = {v.item(): i for i, v in enumerate(unique_table_ids)}
+        # self.idx_id_map = {v.item(): i for i, v in enumerate(unique_idx_ids)}
+
+        # logging.info(f"Number of unique table ids: {len(unique_table_ids)}")
+        # logging.info(f"Number of unique idx ids: {len(unique_idx_ids)}")
 
         self.data[:, 0] = torch.tensor([self.table_id_map[v.item()] for v in self.data[:, 0]])
-        self.data[:, 1] = torch.tensor([self.idx_id_map[v.item()] for v in self.data[:, 1]])
+        # self.data[:, 1] = torch.tensor([self.idx_id_map[v.item()] for v in self.data[:, 1]])
+        self.data[:, 1] = torch.tensor([self.idx_tokenizer.encode(str(v.item())).ids[0] for v in self.data[:, 1]])
 
     def __len__(self):
         return (self.data_length - self.sequence_length - self.prediction_steps + 1) // self.sequence_length
@@ -45,42 +55,42 @@ class TraceDataset(Dataset):
 
         return table_id_seq, idx_id_seq, gt_table, gt_idx
 
-    def get_maps(self):
-        return self.table_id_map, self.idx_id_map
+    def train_tokenizer(self, data):
+        idx_ids = [str(v.item()) for v in torch.unique(data)]
+        tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
+        tokenizer.normalizer = normalizers.Sequence([normalizers.NFKC()])
+        tokenizer.pre_tokenizer = Whitespace()
+        trainer = WordPieceTrainer(vocab_size=100000, special_tokens=["[UNK]"])
+        tokenizer.train_from_iterator(idx_ids, trainer)
+        return tokenizer
     
+    def get_maps(self):
+        return {v: k for k, v in self.table_id_map.items()}, self.idx_tokenizer
+        
 
 def load_dataset(file_path, sequence_length, prediction_ratio, batch_size, shuffle=True):
-    """
-    Args:
-    - file_path (str): Path to the trace data file.
-    - sequence_length (int): Number of (table_id, idx_id) pairs to use as input features.
-    - prediction_ratio(float): Percentage of (table_id, idx_id) pairs to predict.
-    - batch_size (int): Batch size for DataLoader.
-
-    Return:
-    Torch DataLoader for the TraceDataset
-    """
     log_dir = "../Project-8-exp/exp_logs/"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log_file = os.path.join(log_dir, file_path[file_path.rfind("fbgemm"):file_path.rfind(".pt")] + ".log")
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.FileHandler(log_file),
-                        logging.StreamHandler()
-                    ])
+                        handlers=[
+                            logging.FileHandler(log_file),
+                            logging.StreamHandler()
+                        ])
 
     tcDataset = TraceDataset(file_path, sequence_length, prediction_ratio)
     input_length = tcDataset.data_length
     output_length = tcDataset.prediction_steps
     data_loader = DataLoader(tcDataset, batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
     logging.info(f"Input dataset has {input_length} pairs of (table_id, idx_id).")
-    table_unq = get_unqs(tcDataset.data, 0)
-    idx_unq = get_unqs(tcDataset.data, 1)
-    n_table_unq, n_idx_unq = len(table_unq), len(idx_unq)
-    table_id_map, idx_id_map = tcDataset.get_maps()
-    
-    return data_loader, output_length, n_table_unq, n_idx_unq, table_id_map, idx_id_map
+    table_id_map, reverse_table_id_map, idx_tokenizer = tcDataset.get_maps()
+    table_unq = len(table_id_map)
+    idx_unq = idx_tokenizer.get_vocab_size()
+    reverse_idx_id_map = {v: int(k) for k, v in idx_tokenizer.get_vocab().items()}
+
+    return data_loader, output_length, table_unq, idx_unq, table_id_map, reverse_table_id_map, idx_tokenizer, reverse_idx_id_map
+
 
 def load_config(config_path):
     with open(config_path, "r") as f:

@@ -94,57 +94,95 @@ import torch
 #     assert accuracy == expected_accuracy, f"Expected {expected_accuracy}, but got {accuracy}"
 #     print(f"Test passed. Accuracy: {accuracy}")
 
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+
+class CustomDataset(Dataset):
+    def __init__(self, input_sequences, target_sequences, max_len):
+        self.input_sequences = input_sequences
+        self.target_sequences = target_sequences
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.input_sequences)
+
+    def __getitem__(self, idx):
+        input_seq = self.tokenizer.encode(self.input_sequences[idx], max_length=self.max_len, padding='max_length', truncation=True)
+        target_seq = self.tokenizer.encode(self.target_sequences[idx], max_length=self.max_len, padding='max_length', truncation=True)
+        return torch.tensor(input_seq), torch.tensor(target_seq)
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, vocab_size, hidden_dim, n_layers, n_heads, max_seq_len):
+    def __init__(self, vocab_size, d_model, nhead, num_encoder_layers, dim_feedforward, max_len, dropout=0.1):
         super(TransformerEncoder, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, hidden_dim)
-        self.pos_embedding = nn.Embedding(max_seq_len, hidden_dim)
-        encoder_layers = nn.TransformerEncoderLayer(hidden_dim, n_heads)
-        self.encoder = nn.TransformerEncoder(encoder_layers, n_layers)
-        self.linear = nn.Linear(hidden_dim, vocab_size)
-    
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.position_encoding = nn.Parameter(torch.zeros(1, max_len, d_model))
+        encoder_layer = nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
+        self.fc = nn.Linear(d_model, vocab_size)
+
     def forward(self, x):
-        seq_len, batch_size = x.size()
-        pos = torch.arange(0, seq_len).unsqueeze(1).expand(seq_len, batch_size).to(x.device)
-        x = self.embedding(x) + self.pos_embedding(pos)
-        x = self.encoder(x)
-        x = self.linear(x)
+        seq_len = x.size(1)
+        x = self.embedding(x) + self.position_encoding[:, :seq_len, :]
+        x = self.transformer_encoder(x)
+        x = self.fc(x)
         return x
 
-# 假设词汇表大小为5000，隐藏单元数为512，6层编码器，8头注意力机制，最大序列长度为2400
-vocab_size = 5000
-hidden_dim = 512
-n_layers = 6
-n_heads = 8
-max_seq_len = 2400
-model = TransformerEncoder(vocab_size, hidden_dim, n_layers, n_heads, max_seq_len)
+# Hyperparameters
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+vocab_size = 30522  # 词汇表大小，取决于tokenizer
+d_model = 32  # 词嵌入维度
+nhead = 8  # 注意力头数
+num_encoder_layers = 6  # 编码器层数
+dim_feedforward = 2048  # 前馈神经网络维度
+max_len = 2400  # 序列最大长度
+dropout = 0.1  # Dropout概率
+lr = 1e-4  # 学习率
+batch_size = 4  # 批次大小
+epochs = 3 # 训练轮数
 
-# 设置模型到GPU（如果可用）
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+# 准备数据集
+# tokenizer = ...  # 初始化你的tokenizer
+input_sequences = torch.rand(0, 20, [100])  # 你的输入序列列表
+target_sequences = torch.rand(0, 20, [100])  # 你的目标序列列表
+dataset = CustomDataset(input_sequences, target_sequences,  max_len)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-# 假设输入序列已经是词索引，长度为2000
-input_ids = torch.randint(0, vocab_size, (2000, 1)).to(device)
+# 初始化模型
+model = TransformerEncoder(vocab_size, d_model, nhead, num_encoder_layers, dim_feedforward, max_len, dropout).to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=lr)
+
+# 训练模型
+for epoch in range(epochs):
+    model.train()
+    for input_seq, target_seq in dataloader:
+        input_seq, target_seq = input_seq.to(device), target_seq.to(device)
+        optimizer.zero_grad()
+        output = model(input_seq)
+        loss = criterion(output.view(-1, vocab_size), target_seq.view(-1))
+        loss.backward()
+        optimizer.step()
+    print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
 
 # 模型预测
 model.eval()
-predicted_ids = input_ids.clone()
 
 with torch.no_grad():
-    for _ in range(400):
-        outputs = model(predicted_ids)
-        next_token_logits = outputs[-1, 0, :]  # 获取最后一个时间步的预测结果
-        next_token_id = torch.argmax(next_token_logits, dim=-1).unsqueeze(0).unsqueeze(0)
-        predicted_ids = torch.cat([predicted_ids, next_token_id], dim=0)  # 将新预测的词加入输入序列
+    input_text = "your input sequence of 2000 words here"
+    input_ids = tokenizer.encode(input_text, max_length=2000, padding='max_length', truncation=True)
+    input_seq = torch.tensor(input_ids).unsqueeze(0).to(device)
 
-# 假设有一个词汇表将索引转换回单词
-# 这里只是示例，实际需要根据具体词汇表进行转换
-vocab = {i: f'word{i}' for i in range(vocab_size)}
-predicted_text = ' '.join([vocab[idx.item()] for idx in predicted_ids.squeeze()])
+    generated_seq = input_seq
+    for _ in range(400):  # 生成400个词
+        output = model(generated_seq)
+        next_token = torch.argmax(output[:, -1, :], dim=-1).unsqueeze(0)
+        generated_seq = torch.cat((generated_seq, next_token), dim=1)
+        if generated_seq.size(1) > 2400:
+            generated_seq = generated_seq[:, 1:]  # 确保序列长度不超过2400
 
-print(predicted_text)
+    predicted_seq = generated_seq.squeeze(0).tolist()
+    predicted_text = tokenizer.decode(predicted_seq, skip_special_tokens=True)
+    print(predicted_text)
+

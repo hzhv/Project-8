@@ -1,6 +1,6 @@
-training_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_570.pt"
+training_set_path: "/home/lihanzhao/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt"
 # testing_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_600_602.pt"
-testing_set_path: "/home/hli31/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt"
+testing_set_path: "/home/lihanzhao/S2024_MLSYS/Trace/fbgemm_t856_bs65536_0_trace_551_555.pt"
 
 model_configs:
   hidden_dim: 512
