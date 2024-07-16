@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class DLRMPrefetcher(nn.Module):
-    def __init__(self, table_id_vocab, idx_id_vocab, embed_dim, output_length, block_size=2048, n_heads=8, n_layers=2):
+    def __init__(self, table_id_vocab, idx_id_vocab, embed_dim, output_length, n_heads=8, n_layers=2):
         f'''
         Segement embedding layer into n_parts partitions for large vocab size, i.e., idx_id
 
@@ -15,8 +15,7 @@ class DLRMPrefetcher(nn.Module):
         self.embed_dim = embed_dim
         self.hidden_dim = embed_dim * 4
         self.output_length = output_length
-        self.block_size = block_size
-      
+
         self.table_id_embed = nn.Embedding(table_id_vocab, embed_dim)
         self.idx_id_embed = nn.Embedding(100000, embed_dim)
 
@@ -50,29 +49,29 @@ class DLRMPrefetcher(nn.Module):
         print("Encoded Table ID shape after Transformer:", table_id_ec.shape)
         print("Encoded Idx ID shape after Transformer:", idx_id_ec.shape)
         
-        table_id_ec_mean = table_id_ec.mean(dim=0)  # (batch_size, embed_dim)
-        idx_id_ec_mean = idx_id_ec.mean(dim=0)      # (batch_size, embed_dim)
+        table_id_ec_mean = table_id_ec[-1] # (batch_size, embed_dim)
+        idx_id_ec_mean = idx_id_ec[-1]     # (batch_size, embed_dim)
         
         print("Mean Table ID shape:", table_id_ec_mean.shape)
         print("Mean Idx ID shape:", idx_id_ec_mean.shape)
 
-        ## input_embeds, input to the decoder， 
+        ## input_embeds, input to the decoder
         combined_memory = torch.cat((table_id_ec_mean, idx_id_ec_mean), dim=-1) # (batch_size, embed_dim * 2)
         memory = combined_memory.unsqueeze(0).expand(tgt_table_seq.size(1), -1, -1)  # (seq_len, batch_size, embed_dim * 2)
         
-        tgt_table_embeds = self.table_id_embed(tgt_table_seq).permute(1, 0, 2)
+        tgt_table_embeds = self.table_id_embed(tgt_table_seq).permute(1, 0, 2) ##
         tgt_idx_embeds = self.idx_id_embed(tgt_idx_seq).permute(1, 0, 2)
         print(tgt_table_seq.shape, tgt_idx_seq.shape)
         print(tgt_table_embeds.shape, tgt_idx_embeds.shape, "\n")
         tgt_embeds = torch.cat((tgt_table_embeds, tgt_idx_embeds), dim=-1) # (batch_size, embed_dim * 2)
         
-        print("Concatenated output shape (input to linear layer):", tgt_embeds.shape)
+        print("Concat output embedding shape:", tgt_embeds.shape)
         print("\nmemory shape:", combined_memory.shape, memory.shape, "\n")
         hidden_states = self.decoder(tgt_embeds, memory)
 
         print("Decoder output shape:", hidden_states.shape)
 
-        hidden = F.relu(self.linear(hidden_states)) # (batch_size, hidden_dim)       
+        hidden = F.relu(self.linear(hidden_states)) # (output_lenth, batch_size, hidden_dim)       
         print("Linear layer shape:", hidden.shape)
 
         table_outputs = self.table_output_layer(hidden)
@@ -80,6 +79,7 @@ class DLRMPrefetcher(nn.Module):
         print("Output shape:", table_outputs.shape, idx_outputs.shape)
 
         return table_outputs.permute(1, 0, 2), idx_outputs.permute(1, 0, 2)
+    ##### Then>
     
         
     def generate(self, table_id_seq, idx_id_seq):

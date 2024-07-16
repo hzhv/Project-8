@@ -30,6 +30,8 @@ class TraceDataset(Dataset):
         unique_table_ids = torch.unique(self.data[:, 0])
         # unique_idx_ids = torch.unique(self.data[:, 1])
         self.table_id_map = {v.item(): i for i, v in enumerate(unique_table_ids)}
+        self.reverse_table_id_map = {i: v.item() for i, v in enumerate(unique_table_ids)}
+        
         # self.idx_id_map = {v.item(): i for i, v in enumerate(unique_idx_ids)}
 
         # logging.info(f"Number of unique table ids: {len(unique_table_ids)}")
@@ -65,7 +67,7 @@ class TraceDataset(Dataset):
         return tokenizer
     
     def get_maps(self):
-        return {v: k for k, v in self.table_id_map.items()}, self.idx_tokenizer
+        return self.table_id_map, self.reverse_table_id_map, self.idx_tokenizer
         
 
 def load_dataset(file_path, sequence_length, prediction_ratio, batch_size, shuffle=True):
@@ -87,7 +89,7 @@ def load_dataset(file_path, sequence_length, prediction_ratio, batch_size, shuff
     table_id_map, reverse_table_id_map, idx_tokenizer = tcDataset.get_maps()
     table_unq = len(table_id_map)
     idx_unq = idx_tokenizer.get_vocab_size()
-    reverse_idx_id_map = {v: int(k) for k, v in idx_tokenizer.get_vocab().items()}
+    reverse_idx_id_map = {v: int(k) for k, v in idx_tokenizer.get_vocab().items() if k.isdigit()}
 
     return data_loader, output_length, table_unq, idx_unq, table_id_map, reverse_table_id_map, idx_tokenizer, reverse_idx_id_map
 
